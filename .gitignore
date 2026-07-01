@@ -1,0 +1,8 @@
+# Playwright MCP session artifacts (screenshots, console/network logs)
+.playwright-mcp/
+
+# Node
+node_modules/
+
+# macOS
+.DS_Store

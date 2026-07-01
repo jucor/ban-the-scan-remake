@@ -1,0 +1,14 @@
+{
+  "name": "banthescan-walk",
+  "version": "1.0.0",
+  "description": "Classroom rebuild of Amnesty's Ban The Scan 'take a walk' tool: trace a walk between any two NYC addresses and count NYPD cameras along the way.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "test:unit": "node --test test/geo.test.mjs",
+    "test:integration": "node --test test/integration.test.mjs",
+    "build": "node build.mjs",
+    "serve": "python3 -m http.server 8777 --bind 127.0.0.1"
+  },
+  "license": "MIT"
+}
