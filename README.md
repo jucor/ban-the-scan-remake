@@ -113,3 +113,15 @@ Amnesty's still-public camera data.
   two from the original for the same addresses.
 - **% surveilled** depends on the route chosen and which cameras are counted; Amnesty's
   headline "100%" figures were specific short protest routes against the public-camera set.
+
+## License
+
+The **code** in this repository is released under the [MIT License](./LICENSE).
+
+Embedded **third-party data** keeps its original licensing and is used with attribution:
+
+- Camera data — © **Amnesty International**, *Decode Surveillance NYC*
+  ([project](https://banthescan.amnesty.org/decode/) ·
+  [data](https://github.com/amnesty-crisis-evidence-lab/decode-surveillance-nyc)).
+- Place gazetteer — derived from **OpenStreetMap**, © OpenStreetMap contributors (ODbL).
+- Geocoding/routing/tiles at runtime — OpenStreetMap Nominatim, Photon, OSRM, and CARTO.
