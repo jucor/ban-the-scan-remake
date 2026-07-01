@@ -131,6 +131,8 @@
   .pin { width: 15px; height: 15px; border-radius: 50%; box-shadow: 0 0 0 2px #000; }
   .pin-start { background: #fff; border: 3px solid #fff; }
   .pin-end { background: #000; border: 3px solid var(--accent); }
+  /* crisp coverage ring with just a hint of glow (stays vector-sharp) */
+  .cam-ring { filter: drop-shadow(0 0 1px rgba(255,70,70,0.5)); }
 </style>
 </head>
 <body>
@@ -226,52 +228,11 @@ for (const [lat, lon] of PUBLIC) {
   }).addTo(camLayer);
 }
 
-// Additive radial-glow layer for on-route cameras — reproduces Amnesty's look:
-// a dark centre fading to a bright red rim, with overlapping circles building up
-// (globalCompositeOperation 'lighter' = true additive light).
-const GlowLayer = L.Layer.extend({
-  initialize() { this._data = []; },
-  setData(cams) { this._data = cams; this._render(); return this; },
-  onAdd(map) {
-    this._map = map;
-    this._canvas = L.DomUtil.create('canvas');
-    this._canvas.style.position = 'absolute';
-    map.getPane('glowPane').appendChild(this._canvas);
-    map.on('moveend zoomend resize move', this._render, this);
-    this._render();
-  },
-  onRemove(map) { map.off('moveend zoomend resize move', this._render, this); L.DomUtil.remove(this._canvas); },
-  _render() {
-    if (!this._map) return;
-    const map = this._map, size = map.getSize(), cv = this._canvas;
-    if (cv.width !== size.x || cv.height !== size.y) { cv.width = size.x; cv.height = size.y; }
-    L.DomUtil.setPosition(cv, map.containerPointToLayerPoint([0, 0]));
-    const ctx = cv.getContext('2d');
-    ctx.clearRect(0, 0, size.x, size.y);
-    if (!this._data.length) return;
-    ctx.globalCompositeOperation = 'lighter';
-    for (const [lat, lon] of this._data) {
-      const p = map.latLngToContainerPoint([lat, lon]);
-      const edge = map.latLngToContainerPoint([lat + RADIUS / 111320, lon]);
-      const r = Math.abs(p.y - edge.y);
-      if (r < 1.5 || p.x < -r || p.y < -r || p.x > size.x + r || p.y > size.y + r) continue;
-      const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
-      g.addColorStop(0.00, 'rgba(255,45,45,0)');
-      g.addColorStop(0.55, 'rgba(255,45,45,0.02)');
-      g.addColorStop(0.78, 'rgba(255,40,40,0.10)');
-      g.addColorStop(0.91, 'rgba(255,55,55,0.30)');
-      g.addColorStop(0.975, 'rgba(255,95,95,0.60)');
-      g.addColorStop(1.00, 'rgba(255,110,110,0)');
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  },
-});
-const glowLayer = new GlowLayer().addTo(map);
+// Crisp vector coverage rings (SVG) for on-route cameras — thin bright edge,
+// mostly-dark interior, like the original. Sharp at any zoom (no raster blur).
+const glowRenderer = L.svg({ pane: 'glowPane' });
 
-// White route line + bright red camera dots, drawn above the glow.
+// White route line + bright red camera dots, drawn above the rings.
 const routeRenderer = L.canvas({ pane: 'routePane' });
 const routeLayer = L.layerGroup().addTo(map);
 
@@ -376,7 +337,12 @@ async function maybeRoute() {
 function drawRoute(pts, near) {
   routeLayer.clearLayers();
   const latlngs = pts.map((p) => [p.lat, p.lon]);
-  glowLayer.setData(near);                       // additive red glow (dark centre → red rim)
+  // Crisp 120 m coverage rings: thin bright edge + barely-there fill.
+  near.forEach((c) => L.circle([c[0], c[1]], {
+    renderer: glowRenderer, radius: RADIUS,
+    color: '#ff4d4d', weight: 1.1, opacity: 0.65,
+    fillColor: '#ff3030', fillOpacity: 0.045, className: 'cam-ring',
+  }).addTo(routeLayer));
   L.polyline(latlngs, { renderer: routeRenderer, color: '#fff', weight: 4, opacity: 0.97 }).addTo(routeLayer);
   near.forEach((c) => L.circleMarker([c[0], c[1]], {
     renderer: routeRenderer, radius: 3.5, weight: 0, fillColor: '#ff5a5a', fillOpacity: 1,
@@ -469,7 +435,7 @@ map.on('click', async (e) => {
     which = 'start';
     endPt = null; if (endMarker) { map.removeLayer(endMarker); endMarker = null; }
     el('to').value = '';
-    routeLayer.clearLayers(); glowLayer.setData([]);
+    routeLayer.clearLayers();
     ['v-dist', 'v-cams', 'v-expo'].forEach((id) => (el(id).textContent = '–'));
   } else which = 'end';
   setPoint(which, { lat, lon: lng, label: labelFor(lat, lng) }); // offline label
@@ -482,7 +448,7 @@ el('another').addEventListener('click', () => {
   startPt = endPt = null;
   [startMarker, endMarker].forEach((m) => m && map.removeLayer(m));
   startMarker = endMarker = null;
-  routeLayer.clearLayers(); glowLayer.setData([]);
+  routeLayer.clearLayers();
   el('from').value = ''; el('to').value = '';
   ['v-dist', 'v-cams', 'v-expo'].forEach((id) => (el(id).textContent = '–'));
   el('another').classList.remove('show');
